@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import functools
+import sys
 import warnings
 from collections.abc import AsyncIterator, Callable, Coroutine, Iterable, Iterator
 from typing import ParamSpec, TypeVar
@@ -9,6 +10,9 @@ import anyio.to_thread
 
 P = ParamSpec("P")
 T = TypeVar("T")
+
+# WASM runtimes do not support threading.
+_THREADS_AVAILABLE = sys.platform not in ("emscripten", "wasi")
 
 
 async def run_until_first_complete(*args: tuple[Callable, dict]) -> None:  # type: ignore[type-arg]
@@ -29,6 +33,8 @@ async def run_until_first_complete(*args: tuple[Callable, dict]) -> None:  # typ
 
 async def run_in_threadpool(func: Callable[P, T], *args: P.args, **kwargs: P.kwargs) -> T:
     func = functools.partial(func, *args, **kwargs)
+    if not _THREADS_AVAILABLE:
+        return func()
     return await anyio.to_thread.run_sync(func)
 
 
